@@ -1,0 +1,110 @@
+import random
+
+# The Markov chain itself
+class Chain:
+
+    '''
+    # How this chain works
+    This Markov chain implementation is rather simple really.
+    The idea is that each node has associated with it a list of all known next states.
+    We convert this list to a set of probabilities when we actually query the chain.
+    This means that the internal representation:
+        {'a': ['e', 'a', 'a', 'e', 'a'],
+         'e': ['a', 'a', 'e', 'a', 'e', 'a', 'a', 'a', 'e', 'a']
+        }
+    Becomes:
+        {'a': {'a': 0.6,
+               'e': 0.4
+              },
+         'e': {'a': 0.7,
+               'e': 0.3
+              }
+        }
+
+    # A word on efficiency
+    To manage this effectively, we keep both representations in each node.
+    Large training sets would make this computation expensive to do every time.
+    Because of this, we actually keep the two representations out of sync sometimes!
+    The chain knows when it's recieving training data and when it's not via a `primed` boolean,
+      indicating whether it's ready to recieve more training data.
+    When we want to prime the chain so we can query it, we tell it to "prime" itself via the `prime()` method.
+    Every time it primes itself, it'll recalculate the probabilities, and when it's accepting more training data
+      it'll lose its primed-ness, allowing itself to fall safely out of sync
+      (because we know we'll recalculate when we're done training the chain)
+    *Note that we'll do this automatically if you use the chain's training mechanisms.*
+
+    # How to use the chain
+    If you have lots of training data and want to be efficient, run `chain.begin_training` to take the gloves off.
+    Feed it pairs of training data with the `remember(initial_state, future_state)` method.
+    If you're training the beginning of a sentence, make the initial state `mychain.beginning`.
+    If you're training the end of a sentence, make the future state `mychain.end`
+    When you're done with a large training set, run `chain.prime` to calibrate probabilities and "prime" all of the
+      chain's nodes automatically.
+    '''
+
+    def __init__(self):
+
+        # The list of all of the times a state transitions to another state, the first representation above
+        self.__instance_chain = {}
+        # Our sometimes-out-of-sync representation involving probabilities, the second representation above
+        self.chain = {}
+
+        # Add classes for the beginning and the end of speech
+        class Beginning: pass
+        class End: pass
+        # Add instances of those classes so they're accessible for training data
+        self.beginning = Beginning()
+        self.end = End()
+
+        self.primed = True # We're not being trained *right now*
+
+        self.current_state = self.beginning
+
+    def prime(self):
+        self.chain = {}
+        for node in self.__instance_chain:
+            self.chain[node] = {}
+            states_remembered = len(self.__instance_chain[node]) ## the number of future states we've visited (including duplicates) from this current node
+            for future_state in self.__instance_chain[node]:
+                if future_state not in self.chain[node].keys():
+                    state_occurance_count = self.__instance_chain[node].count(future_state)
+                    probability = state_occurance_count / states_remembered
+                    self.chain[node][future_state] = probability
+
+        # Now we're back in sync, so we can say that we're primed again!
+        self.primed = True
+
+    def begin_training(self):
+        # We'll just stay non-primed for a while, and won't re-calculate probabilities every time we're told something new.
+        self.primed = False
+
+    def remember(self, initial_state, future_state):
+        ## If we're taking in information while we're also being used, recalculate probabilties immediately.
+        ## This means that if we're currently primed, we'll leave this method also primed.
+        recalculate_probabilities_immediately = self.primed
+
+        ## Now, technically we're not currently primed.
+        ## We know the two representations of the chain will be out of sync, and so we have to record that we're no longer in a primed state.
+        self.primed = False
+
+        ## Record the new information.
+        self.__instance_chain[initial_state].append(future_state)
+
+        ## If we entered the method primed, also leave primed.
+        if recaulcuate_probabilities_immediately:
+            self.prime()
+
+    # This Markov chain is actually also an iterator, allowing us to use the nice `for state in mychain:` syntax.
+    # That means we need an __iter__ and a next()!
+    # TODO: See about getting the same thing out of a generator instead of these magic methods.
+    def __iter__(self):
+        return self
+
+    def next(self):
+        choice = random.random()
+        probability_reached = 0
+        for state, probability in self.chain[self.current_state].items():
+            probability_reached += probability
+            if probability_reached > choice:
+                self.current_state = state
+                return state

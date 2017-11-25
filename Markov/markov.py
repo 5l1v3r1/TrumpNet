@@ -1,4 +1,19 @@
+# -*- coding: utf-8 -*-
 import random
+import time
+
+training_file = "belling_the_cat.txt"
+
+def read_data(filename):
+    try:
+        with open(filename) as tf:
+            lines = tf.readlines()
+        content = [x.strip() for x in lines]
+        content = [content[i].split() for i in range(len(content))]
+        content_list = content[0]
+        return content_list
+    except IOError:
+        print("Error reading file, check filename or path.")
 
 # The Markov chain itself
 class Chain:
@@ -88,10 +103,12 @@ class Chain:
         self.primed = False
 
         ## Record the new information.
-        self.__instance_chain[initial_state].append(future_state)
+        try:
+            self.__instance_chain[initial_state].append(future_state)
+        except: pass
 
         ## If we entered the method primed, also leave primed.
-        if recaulcuate_probabilities_immediately:
+        if recalculate_probabilities_immediately:
             self.prime()
 
     # This Markov chain is actually also an iterator, allowing us to use the nice `for state in mychain:` syntax.
@@ -103,8 +120,22 @@ class Chain:
     def next(self):
         choice = random.random()
         probability_reached = 0
-        for state, probability in self.chain[self.current_state].items():
-            probability_reached += probability
-            if probability_reached > choice:
-                self.current_state = state
-                return state
+        try:
+            for state, probability in self.chain[self.current_state].items():
+                probability_reached += probability
+                if probability_reached > choice:
+                    self.current_state = state
+                    return state
+        except: pass
+
+training_data = read_data(training_file)
+chain = Chain()
+chain.begin_training()
+chain.remember(chain.beginning, training_data[0])
+for x in range(len(training_data)-2):
+    chain.remember(chain.current_state, training_data[x])
+chain.remember(training_data[-1], chain.end)
+chain.prime()
+
+for state in chain:
+    print(state) # prints None endlessly :(

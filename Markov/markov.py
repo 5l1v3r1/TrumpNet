@@ -2,7 +2,7 @@
 import random
 import time
 
-training_file = "belling_the_cat.txt"
+training_file = "belling_the_cat.txt"  ## Hahah what? :P
 
 def read_data(filename):
     try:
@@ -83,7 +83,7 @@ class Chain:
             for future_state in self.__instance_chain[node]:
                 if future_state not in self.chain[node].keys():
                     state_occurance_count = self.__instance_chain[node].count(future_state)
-                    probability = state_occurance_count / states_remembered
+                    probability = state_occurance_count / float(states_remembered)
                     self.chain[node][future_state] = probability
 
         # Now we're back in sync, so we can say that we're primed again!
@@ -103,9 +103,10 @@ class Chain:
         self.primed = False
 
         ## Record the new information.
-        try:
-            self.__instance_chain[initial_state].append(future_state)
-        except: pass
+        if initial_state not in self.__instance_chain.keys():
+            self.__instance_chain[initial_state] = []
+
+        self.__instance_chain[initial_state].append(future_state)
 
         ## If we entered the method primed, also leave primed.
         if recalculate_probabilities_immediately:
@@ -120,22 +121,55 @@ class Chain:
     def next(self):
         choice = random.random()
         probability_reached = 0
-        try:
-            for state, probability in self.chain[self.current_state].items():
-                probability_reached += probability
-                if probability_reached > choice:
-                    self.current_state = state
-                    return state
-        except: pass
 
-training_data = read_data(training_file)
-chain = Chain()
-chain.begin_training()
-chain.remember(chain.beginning, training_data[0])
-for x in range(len(training_data)-2):
-    chain.remember(chain.current_state, training_data[x])
-chain.remember(training_data[-1], chain.end)
-chain.prime()
+        # Occasionally, we'll reach a symbol with nothing that leads on from it.
+        # In that case, we've reached an implicit end, so jump to the end of the chain.
+        if len(self.chain[self.current_state]) == 0:
+            self.current_state = self.end
 
-for state in chain:
-    print(state) # prints None endlessly :(
+        for state, probability in self.chain[self.current_state].items():
+            probability_reached += probability
+            if probability_reached > choice:
+                self.current_state = state
+
+        # If we're at the end of the chain, don't keep iterating.
+        if self.current_state == self.end:
+            raise StopIteration
+
+        # We're not at the end of the chain if we get here! So return whatever we've got.
+        return self.current_state
+
+
+    ## Lets us begin the chain traversal again.
+    def reset(self):
+        self.current_state = self.beginning
+
+    def remember_sequence(self, sequence):
+        self.begin_training()
+
+        ## Add the beginning and end symbols to this sequence
+        sequence.insert(0, self.beginning)
+        sequence.insert(len(sequence), self.end)
+
+        # Remember each pair in the sequence!
+        for pos in range(len(sequence)-1):
+            self.remember(sequence[pos], sequence[pos+1])
+
+        self.prime()
+
+    def generate_sequence(self):
+        sequence = []
+        for state in self:
+            sequence.append(state)
+        return sequence
+
+
+
+## So this runs only if we're not importing the chain and running it directly instead
+if __name__ == "__main__":
+    training_data = read_data(training_file)
+    chain = Chain()
+    chain.remember_sequence(training_data)
+    for word in chain:
+        print word
+        time.sleep(0.2)

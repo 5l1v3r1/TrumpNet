@@ -157,12 +157,16 @@ class Chain:
 
         self.prime()
 
-    def generate_sequence(self):
+    def generate_sequence(self, max_length="iterate forever"):
         sequence = []
-        for state in self:
-            sequence.append(state)
-        return sequence
 
+        for element in chain:
+            sequence.append(element)
+
+            if len(sequence) == max_length:
+                break
+
+        return sequence
 
 
 ## So this runs only if we're not importing the chain and running it directly instead
@@ -170,6 +174,4 @@ if __name__ == "__main__":
     training_data = read_data(training_file)
     chain = Chain()
     chain.remember_sequence(training_data)
-    for word in chain:
-        print word
-        time.sleep(0.2)
+    print chain.generate_sequence(max_length=100)

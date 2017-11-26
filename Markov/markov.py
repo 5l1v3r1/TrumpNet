@@ -160,7 +160,7 @@ class Chain:
     def generate_sequence(self, max_length="iterate forever"):
         sequence = []
 
-        for element in chain:
+        for element in self.chain:
             sequence.append(element)
 
             if len(sequence) == max_length:
@@ -174,4 +174,4 @@ if __name__ == "__main__":
     training_data = read_data(training_file)
     chain = Chain()
     chain.remember_sequence(training_data)
-    print chain.generate_sequence(max_length=100)
+    print(chain.generate_sequence(max_length=100))
